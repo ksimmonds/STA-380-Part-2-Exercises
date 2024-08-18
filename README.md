@@ -11,9 +11,9 @@ STA 380, Part 2: Exercises
 
 ## Problem Links
 
-1. Probability Practice 
+1. Probability Practice : https://github.com/p-twinkle/STA-380-Part-2-Exercises/blob/main/00%20Probability%20Practice.ipynb
 
-2. Wrangling the Billboard Top 100 
+2. Wrangling the Billboard Top 100 : https://github.com/p-twinkle/STA-380-Part-2-Exercises/blob/main/01%20Wrangling%20the%20Billboard%20Top%20100.ipynb
 
 3. Visual Storytelling Part 1: Green Buildings 
 
@@ -23,7 +23,7 @@ STA 380, Part 2: Exercises
 
 6. Market Segmentation 
 
-7. The Reuters Corpus
+7. The Reuters Corpus : https://github.com/p-twinkle/STA-380-Part-2-Exercises/blob/main/06%20The%20Reuters%20corpus.ipynb
 
 8. Association Rule Mining 
 
