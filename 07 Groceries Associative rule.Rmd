@@ -1,0 +1,148 @@
+---
+title: "Groceries Associative Rule Mining"
+author: "Project Exercises"
+date: "2024-08-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#load up nevcessary libraries 
+```{r load libraries}
+library(tidyverse)
+library(igraph)
+library(arules) 
+library(arulesViz)
+```
+#load the dat and transform into useful format
+```{r}
+file_path <- "C:/Users/rayad/OneDrive/Desktop/Introduction to ML/Part 2/groceries.txt"
+customer_rows <- readLines(file_path) #read each line as a customer basket
+customer_items_list <- strsplit(customer_rows, ",") #split at , and then store it as a list
+```
+#get the transactions and first set of rules for support = 0.02, confidence = 0.01 and max 5 elements in the association rule
+```{r try 1}
+items.customers = as(customer_items_list, "transactions")
+summary(items.customers)
+#most frequent items that come up - whole milk, other vegetables, rolls/buns, soda, yogurt, Other
+groceryrules = apriori(items.customers, parameter=list(support=.02, confidence=.01, maxlen=5))
+inspect(groceryrules)
+```
+The thresholds are very tight and give just 187 rules, but let's look at the plots and associated graphs
+##Associated plots
+```{r plots1}
+#a few plots 
+plot(groceryrules)
+plot(groceryrules, measure = c("support", "lift"), shading = "confidence")
+#"two key" plot: coloring is by size (order) of item set
+plot(groceryrules, method='two-key plot')
+
+```
+Inspecting a few elements : 
+```{r}
+inspect(subset(groceryrules, subset=lift > 1))
+inspect(subset(groceryrules, subset=confidence > 0.1))
+inspect(subset(groceryrules, subset=confidence > 0.01))
+```
+
+##Output 1 
+```{r Output 1}
+grocery_graph = associations2igraph(subset(groceryrules, lift>1), associationsAsNodes = FALSE)
+igraph::write_graph(grocery_graph, file='groceries_tight.graphml', format = "graphml")
+```
+#get the transactions and first set of rules for support = 0.001, confidence = 0.01 and max 6 elements in the association rule
+```{r try 2}
+items.customers = as(customer_items_list, "transactions")
+summary(items.customers)
+#most frequent items that come up - whole milk, other vegetables, rolls/buns, soda, yogurt, Other
+groceryrules = apriori(items.customers, parameter=list(support=.001, confidence=.005, maxlen=3))
+inspect(groceryrules)
+```
+
+At lift > 1, confidence >0.1 and At confidence > 0.01, most of the associations look like a common grocery basket : Milk, spreads, vegetables,fruits, meat, yogurt. We do not find a lot of interesting associations. We lowered the threshold to look for interesting associations
+The thresholds are not the tight now and give get about 26,500 rules. We wanted to look at only those items which occured at least 0.1% of times, otherwise the assciations taht we get might not be very valid. We could have lowered the threshold further if we had $value assciated with the products to allow items with higher value but lower support in because they can be purchased by our premium segments, but for now, we used 0.001. For confidence, the least confidence we allowed was 0.5%, but to look at the interesting rules, we looked at the higher values of confidence before making a rule out of it. We tried increasing maxlen>3 for these, but then it became computationally expensive, so we stuck with maxlen = 4. Let's look at the plots and associated graphs
+##Associated plots
+```{r plots2}
+#a few plots 
+plot(groceryrules)
+plot(groceryrules, measure = c("support", "lift"), shading = "confidence")
+#"two key" plot: coloring is by size (order) of item set
+plot(groceryrules, method='two-key plot')
+```
+**Understanding the graphs**
+The first scatter plot between confidence and support with lift as legend shows that with the cases where the support is high, the confidence id generally low or almost negligible for lift >1. There are certain points which have really high confidence, even though their support or basket occurrence is less - one such example being : {liquor, red/blush wine}	=>	{bottled beer} with a support of just 0.19% but a high lift of 11.The second graphs is also building up on a similar narrative, with a different set of axes.
+The last graph shows something really interesting when order is added to give more information. The high support ones are actually just single products in the basket. There are a few pairs or items which have a fairly decent confidence but the the occurrence of such baskets/ groups is not very common- as indictaed by the low support. We went ahead and analysed them further.
+
+**Inspecting a few of them** : 
+```{r}
+p1 = inspect(subset(groceryrules, subset=lift < 1))
+p2 = inspect(subset(groceryrules, subset=lift == 1))
+p5 = inspect(subset(groceryrules, subset=lift > 1 & confidence > 0.2))
+write.csv(p1, "your_data1.csv")
+write.csv(p2, "your_data2.csv")
+write.csv(p5, "your_data5.csv")
+
+```
+
+Some observations : 
+**Substitute Products** (lift <1)
+Some of the least related product would be canned beer with regular items like curd, meat, yogurt, milk, vegetables and sour cream
+{bottled beer}	=>	{canned beer}	Confidence = 3.28% and Lift = 0.422599688 - If you buy bottled beer, you might not probably buy canned beer and this rule kind of shows that with a low confidence of just 3.2%
+{white wine}	=>	{whole milk}	Confidence = 13.90%	and lift = 0.544143715 - The possibility of buying white wine (or sparkling wine), given that you have added milk to your cart is very less, or that of buying red/blush wine, given you have yogurt is less
+There are a few items which come up in this list and not the one in lift > 1. These are the rarely purchased items like specialty bars, photo/film, pot plants, napkins, specialty chocolate, detergent, turkey. These come up with less lift but it would not be really right to classify these as subsitutes like we did above becuase these are products which are purchased rarely and with a general intention to just grab those products and move to the check out. We might need some additional data to say that these are actually substitue but by the initial looks of it, they should not be actual substitues.
+
+**Complimentary Products** (Lift >1) - let us call lift = L and confidence = C
+1.*Alcoholic beverage pairings* : 
+The highest lift is at 35.71 - observed for {bottled beer, red/blush wine}	=>	{liquor} , with a confidence of 49.6%
+{bottled beer, liquor} => {red/blush wine} has a lift of  21.49 and a confidence of 41.3%. 
+{liquor}	=>	{bottled beer} with a lift of 5.24 and a confidence of 42.20%
+This indicates strong associations. Purchase the one on right significantly increases the chances of the ones of left being purchased together - as a bundle - can be used to create cross- promotional bundled deals 
+
+2.*Snacks & Convenience Food Pairings*:
+{Instant food products, soda} => {hamburger meat} with L = 18.99 and C =63.16%  
+{hamburger meat, soda} => {Instant food products} with L = 26.21 & C = 21.05%
+{popcorn, soda} => {salty snack} with L = 16.70 & C = 63.16%
+{Instant food products, rolls/buns} => {hamburger meat} with L = 13.03 and C = 43.48%
+Potential fast food bundles, movie night snack bundles and meal deal options
+
+3.*Breakfast Pairings  & Baking Ingredients:*: 
+{ham, processed cheese} => {white bread} L=15.05 and C= 63.33%
+{processed cheese, white bread} => {ham} L=17.80 and C= 46.34%
+{ham, white bread} => {processed cheese} L=22.93 and C=38%
+{baking powder, flour} => {sugar} with L = 16.41 and C = 55.56%
+{baking powder, sugar} => {flour} with L = 17.97 and C = 31.25%
+{curd, sugar} => {flour} with L = 18.61 and C = 32.35%
+{butter, jam} => {whole milk} with L = 3.26 and C = 83.33%
+
+A little bit of plannograming optimization and good shelf signage can improve not just consumer experience but also help with any promotional deals for cross selling
+The problem is with the small support and the smaller count of such transactions on which we are basing out confidence 
+
+The recurring presence of whole milk alongside alcohol suggests that many shoppers balance their purchases between necessities and leisure items, indicating that even when purchasing beverages, they do not neglect everyday household needs. The combinations also hint at possible occasions where alcohol, dessert, and fresh produce are being bought together, perhaps for gatherings or special meals.
+
+##Output 2
+```{r Output }
+grocery_graph = associations2igraph(subset(groceryrules, lift>1), associationsAsNodes = FALSE)
+igraph::write_graph(grocery_graph, file='groceries_free.graphml', format = "graphml")
+library(igraph)
+rules_df <- data.frame(
+    lhs = labels(lhs(groceryrules)),
+    rhs = labels(rhs(groceryrules)),
+    support = quality(groceryrules)$support,
+    confidence = quality(groceryrules)$confidence,
+    lift = quality(groceryrules)$lift
+)
+g <- graph_from_data_frame(rules_df[,c("lhs", "rhs")], directed=TRUE)
+plot(g, vertex.size=5, vertex.label.cex=0.8, edge.arrow.size=0.5)
+```
+
+The graph in R does not look very easy to interpret. Moving that to Gephi, we are able to better work with the network. 
+This is how it looks :
+
+```{r, echo=FALSE, out.width="50%"}
+knitr::include_graphics("groceries.png")
+```
+As expected , We do not get any clusters as we did in the playlists example. The items having high support (most frequently purchased) - like milk, yogurt eggs, buns and vegetables are at the centre with highest degree, Most of the prducts located at the circumference are connected to these, but are not really connected to other points on the circumference.
+
+The support numbers are really low if looked at one particular item. This analysis would have provided additional information on possible brand canibalizations, cross product promotions if looked at a categorical level rather than all products available and if we had more rows to increase the confidence numbers in whatever we are predicting 
+
